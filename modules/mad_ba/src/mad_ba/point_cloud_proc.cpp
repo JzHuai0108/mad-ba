@@ -78,7 +78,7 @@ namespace mad_ba {
       // Create folders   
       int cnt = 0;
       while (true) {
-        std::string path = "/root/share/output/" + outputFolder_ + "_" + std::to_string(cnt);;           
+        std::string path = ros::package::getPath("mad_ba") + "/output/" + outputFolder_ + "_" + std::to_string(cnt);;           
         if (!fs::is_directory(path) || !fs::exists(path)) {  // Check if src folder exists
           fs::create_directory(path);                        // create src folder
           fs::create_directory(path + "/pcd");
@@ -206,7 +206,7 @@ namespace mad_ba {
   }
 
   void PointCloudProc::savePosesToFile() {
-    static std::string path = "/root/share/output/" + outputFolder_ + "/tum/";
+    static std::string path = ros::package::getPath("mad_ba") + "/output/" + outputFolder_ + "/tum/";
     static int cnt = 0;
     std::string filename;
     if (useRawSurfelOptimization_) {
@@ -1347,7 +1347,7 @@ void PointCloudProc::rawOptimizeSurfelsv2(std::vector<Surfelv2>& surfelsv2){ //}
 
     surfelPointCloudPub_.publish(rosCloud);
 
-    static std::string path = "/root/share/output/" + outputFolder_;
+    static std::string path = ros::package::getPath("mad_ba") + "/output/" + outputFolder_;
     static int cnt = 0;
     pcl::io::savePCDFile(path + "/pcd/surfelCloud_" + std::to_string(cnt) + pathSuffix + ".pcd", psCloud);
     cnt++;
