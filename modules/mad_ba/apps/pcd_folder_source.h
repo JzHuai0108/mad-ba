@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <string>
 
@@ -21,6 +23,34 @@
 #include <mad_ba/point_cloud_proc.h>
 
 namespace mad_ba {
+
+inline bool parseTimestamp(const std::string& ts_str, uint32_t& secs, uint32_t& nsecs) {
+    const size_t dot_pos = ts_str.find('.');
+    if (dot_pos == std::string::npos || dot_pos == 0 || dot_pos + 10 != ts_str.size())
+        return false;
+
+    uint64_t secs64 = 0;
+    uint32_t nsecs32 = 0;
+    for (size_t i = 0; i < ts_str.size(); ++i) {
+        if (i == dot_pos)
+            continue;
+        if (ts_str[i] < '0' || ts_str[i] > '9')
+            return false;
+
+        const uint32_t digit = static_cast<uint32_t>(ts_str[i] - '0');
+        if (i < dot_pos) {
+            if (secs64 > (std::numeric_limits<uint32_t>::max() - digit) / 10)
+                return false;
+            secs64 = secs64 * 10 + digit;
+        } else {
+            nsecs32 = nsecs32 * 10 + digit;
+        }
+    }
+
+    secs  = static_cast<uint32_t>(secs64);
+    nsecs = nsecs32;
+    return true;
+}
 
 /**
  * Feed undistorted PCD files and their keyframe poses into PointCloudProc,
@@ -66,9 +96,12 @@ inline void runFromPCDFolder(std::shared_ptr<PointCloudProc> proc,
             continue;
         }
 
-        const double   ts    = std::stod(ts_str);
-        const uint32_t secs  = static_cast<uint32_t>(ts);
-        const uint32_t nsecs = static_cast<uint32_t>((ts - secs) * 1e9);
+        uint32_t secs = 0, nsecs = 0;
+        if (!parseTimestamp(ts_str, secs, nsecs)) {
+            std::cerr << "runFromPCDFolder | skipping malformed timestamp: "
+                      << ts_str << std::endl;
+            continue;
+        }
 
         // Load PCD.  The file uses x y z intensity [normal_x normal_y normal_z curvature];
         // loading as PointXYZI is sufficient since mad_ba recomputes normals internally.
