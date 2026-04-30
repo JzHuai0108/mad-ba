@@ -28,7 +28,8 @@ public:
              const int max_parallel_level,
              TreeNode3D* parent,
              TreeNode3D* plane_predecessor,
-             int pointCloudId);
+             int pointCloudId,
+             float beam_divergence_deg);
 
   inline ~TreeNode3D() {
     if (left_)
@@ -51,7 +52,8 @@ public:
              const int max_parallel_level,
              TreeNode3D* parent,
              TreeNode3D* plane_predecessor,
-             int pointCloudId);
+             int pointCloudId,
+             float beam_divergence_deg);
 
   static inline ThisType* makeSubtree(
                                const IteratorType begin,
@@ -62,7 +64,8 @@ public:
                                const int max_parallel_level,
                                TreeNode3D* parent,
                                TreeNode3D* plane_predecessor,
-                               int pointCloudId);
+                               int pointCloudId,
+                               float beam_divergence_deg);
 
   inline void getLeafs(std::back_insert_iterator<std::vector<TreeNode3D*>> it);
 

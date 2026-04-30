@@ -19,7 +19,8 @@ inline TreeNode3D<ContainerType_>::TreeNode3D(
                                        const int max_parallel_level,
                                        TreeNode3D* parent,
                                        TreeNode3D* plane_predecessor,
-                                       int pointCloudId) {
+                                       int pointCloudId,
+                                       float beam_divergence_deg) {
   build(
         begin,
         end,
@@ -29,7 +30,8 @@ inline TreeNode3D<ContainerType_>::TreeNode3D(
         max_parallel_level,
         parent,
         plane_predecessor,
-        pointCloudId);
+        pointCloudId,
+        beam_divergence_deg);
 }
 
 template <typename ContainerType_>
@@ -42,7 +44,8 @@ inline void TreeNode3D<ContainerType_>::build(
                                        const int max_parallel_level,
                                        TreeNode3D* parent,
                                        TreeNode3D* plane_predecessor,
-                                       int pointCloudId) {
+                                       int pointCloudId,
+                                       float beam_divergence_deg) {
   pointcloud_id_ = pointCloudId;
   parent_ = parent;
   Eigen::Matrix3f cov;
@@ -82,9 +85,6 @@ inline void TreeNode3D<ContainerType_>::build(
     mean_ = nearest_point;
 
         // ***************** BEGIN OF BEAM SIMULATION ***************** //
-    const double beam_divergence_deg = 0.35; // os0-128, Rest
-    // const float beam_divergence_deg = 0.18; // os1-64, Campus, Ciampino
-
     const double beam_divergence = beam_divergence_deg * M_PI / 180.0;
     const int root_num_beams = 11; // must be odd
     const double beam_delta = beam_divergence / double(root_num_beams-1);
@@ -165,7 +165,8 @@ inline void TreeNode3D<ContainerType_>::build(
                            max_parallel_level,
                            this,
                            plane_predecessor,
-                           pointCloudId);
+                           pointCloudId,
+                           beam_divergence_deg);
 
     right_ = new TreeNode3D(
                             middle,
@@ -176,7 +177,8 @@ inline void TreeNode3D<ContainerType_>::build(
                             max_parallel_level,
                             this,
                             plane_predecessor,
-                            pointCloudId);
+                            pointCloudId,
+                            beam_divergence_deg);
   } else {
     std::future<ThisType*> l = std::async(ThisType::makeSubtree,
                                          
@@ -188,7 +190,8 @@ inline void TreeNode3D<ContainerType_>::build(
                                           max_parallel_level,
                                           this,
                                           plane_predecessor,
-                                          pointCloudId);
+                                          pointCloudId,
+                                          beam_divergence_deg);
 
     std::future<ThisType*> r = std::async(ThisType::makeSubtree,
                                         
@@ -200,7 +203,8 @@ inline void TreeNode3D<ContainerType_>::build(
                                           max_parallel_level,
                                           this,
                                           plane_predecessor,
-                                          pointCloudId);
+                                          pointCloudId,
+                                          beam_divergence_deg);
     left_ = l.get();
     right_ = r.get();
   }
@@ -217,7 +221,8 @@ inline TreeNode3D<ContainerType_>* TreeNode3D<ContainerType_>::makeSubtree(
                                                                     const int max_parallel_level,
                                                                     TreeNode3D* parent,
                                                                     TreeNode3D* plane_predecessor,
-                                                                    int pointCloudId) {
+                                                                    int pointCloudId,
+                                                                    float beam_divergence_deg) {
   return new TreeNode3D(
                         begin,
                         end,
@@ -227,7 +232,8 @@ inline TreeNode3D<ContainerType_>* TreeNode3D<ContainerType_>::makeSubtree(
                         max_parallel_level,
                         parent,
                         plane_predecessor,
-                        pointCloudId);
+                        pointCloudId,
+                        beam_divergence_deg);
 }
 
 template <typename ContainerType_>

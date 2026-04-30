@@ -27,7 +27,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <filesystem>
 #include <iostream>
+#include <regex>
 #include <vector>
 #include <ros/ros.h>
 #include <ros/package.h>
@@ -43,6 +45,64 @@ using namespace srrg2_solver;
 ConfigurableManager manager;
 std::shared_ptr<PipelineRunner> runner;
 
+namespace {
+std::string shellEscapeJsonString(const std::string& value) {
+    std::string escaped;
+    escaped.reserve(value.size());
+    for (const char c : value) {
+        if (c == '\\' || c == '"') {
+            escaped.push_back('\\');
+        }
+        escaped.push_back(c);
+    }
+    return escaped;
+}
+
+std::string inferCatkinDevelSpace(const std::string& package_path) {
+    if (const char* env_devel = std::getenv("MAD_BA_DEVEL")) {
+        if (*env_devel) {
+            return env_devel;
+        }
+    }
+
+    const std::string src_marker = "/src/";
+    const std::size_t src_pos = package_path.find(src_marker);
+    if (src_pos == std::string::npos) {
+        return "";
+    }
+    return package_path.substr(0, src_pos) + "/devel";
+}
+
+std::string makeRuntimeDlConfig(const std::string& dl_config_path, const std::string& so_path) {
+    if (so_path.empty()) {
+        return dl_config_path;
+    }
+
+    std::ifstream input(dl_config_path);
+    if (!input.good()) {
+        throw std::runtime_error("unable to open dynamic loader config: " + dl_config_path);
+    }
+
+    std::stringstream buffer;
+    buffer << input.rdbuf();
+    std::string config = buffer.str();
+
+    const std::regex so_paths_regex("\"so_paths\"\\s*:\\s*\\[[^\\]]*\\]");
+    const std::string replacement = "\"so_paths\" : [ \"" + shellEscapeJsonString(so_path) + "\" ]";
+    config = std::regex_replace(config, so_paths_regex, replacement, std::regex_constants::format_first_only);
+
+    const std::filesystem::path runtime_path =
+      std::filesystem::temp_directory_path() /
+      ("mad_ba_dl_" + std::to_string(static_cast<long long>(getpid())) + ".conf");
+    std::ofstream output(runtime_path);
+    if (!output.good()) {
+        throw std::runtime_error("unable to write runtime dynamic loader config: " + runtime_path.string());
+    }
+    output << config;
+    return runtime_path.string();
+}
+}
+
 int main(int argc, char** argv) {
     // Initalize ROS
     srrgInit(argc, argv, "mad_ba");
@@ -52,12 +112,21 @@ int main(int argc, char** argv) {
     ParseCommandLine cmd(argv);
     ArgumentString config_file(&cmd, "c", "config",   "config file to load",                          "");
     ArgumentString pcd_dir    (&cmd, "p", "pcd-dir",  "directory of undistorted PCD files",            "");
-    ArgumentString tum_file   (&cmd, "t", "tum",      "TUM trajectory file with keyframe poses",        "");
+    ArgumentString tum_file   (&cmd, "t", "tum",      "TUM trajectory file with frame or selected frame poses",        "");
+    ArgumentString dl_config  (&cmd, "dlc", "dl-config", "dynamic loader config file", "");
+    ArgumentString dl_so_path (&cmd, "dlp", "dl-path",   "devel/install prefix where dynamic libraries are located", "");
     cmd.parse();
 
     // Find the dynamic libraries
-    const std::string dl_path = ros::package::getPath("mad_ba") + "/dl.conf";
-    ConfigurableManager::initFactory(dl_path);
+    const std::string package_path = ros::package::getPath("mad_ba");
+    const std::string dl_config_path = dl_config.value().empty() ? package_path + "/dl.conf" : dl_config.value();
+    const std::string so_path = dl_so_path.value().empty() ? inferCatkinDevelSpace(package_path) : dl_so_path.value();
+    const std::string runtime_dl_config_path = makeRuntimeDlConfig(dl_config_path, so_path);
+    std::cerr << "main_app|dynamic loader config: " << runtime_dl_config_path << std::endl;
+    if (!so_path.empty()) {
+        std::cerr << "main_app|dynamic library prefix: " << so_path << std::endl;
+    }
+    ConfigurableManager::initFactory(runtime_dl_config_path);
 
     // Read the config file
     manager.read(config_file.value());

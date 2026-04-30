@@ -89,6 +89,7 @@ namespace mad_ba {
     PARAM(PropertyFloat, robustifier_huber_chi, "robustifier_huber_chi", 0.1, 0);
     PARAM(PropertyFloat, trans_noise_stddev, "trans_noise_stddev", 0.0, 0);
     PARAM(PropertyFloat, rot_noise_stddev, "rot_noise_stddev", 0.0, 0);
+    PARAM(PropertyFloat, beam_divergence_deg, "beam_divergence_deg", 0.35, 0);
 
     PointCloudProc();
     virtual ~PointCloudProc();
@@ -200,6 +201,7 @@ namespace mad_ba {
     float robustifierHuberChi_;
     float transNoiseStddev_;
     float rotNoiseStddev_;
+    float beamDivergenceDeg_;
     };
 
   using PointCloudProcPtr = std::shared_ptr<PointCloudProc>;

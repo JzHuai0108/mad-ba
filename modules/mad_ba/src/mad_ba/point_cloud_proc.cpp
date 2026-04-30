@@ -75,6 +75,8 @@ namespace mad_ba {
       // Noise values
       transNoiseStddev_ = param_trans_noise_stddev.value();
       rotNoiseStddev_ = param_rot_noise_stddev.value();
+      // LiDAR beam divergence in degrees for surfel weighting
+      beamDivergenceDeg_ = param_beam_divergence_deg.value();
       // Create folders   
       int cnt = 0;
       while (true) {
@@ -100,6 +102,7 @@ namespace mad_ba {
           file << "robustifierHuberChi: " << param_robustifier_huber_chi.value() << std::endl; 
           file << "transNoiseStddev_: " << param_trans_noise_stddev.value() << std::endl; 
           file << "rotNoiseStddev: " <<param_rot_noise_stddev.value() << std::endl;
+          file << "beamDivergenceDeg: " << beamDivergenceDeg_ << std::endl;
           file.close();
           break;
           
@@ -393,7 +396,8 @@ namespace mad_ba {
                                               2,
                                               nullptr,
                                               nullptr,
-                                              pointCloudId);
+                                              pointCloudId,
+                                              beamDivergenceDeg_);
 
       // Transform kdTree according to the BA pose
       // Eigen::Matrix3f rot = Eigen::Matrix3f::Identity();
