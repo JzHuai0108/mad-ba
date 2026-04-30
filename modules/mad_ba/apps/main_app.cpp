@@ -101,6 +101,34 @@ std::string makeRuntimeDlConfig(const std::string& dl_config_path, const std::st
     output << config;
     return runtime_path.string();
 }
+
+std::string stripKnownDatasetPrefix(const std::string& filename) {
+    const std::string dataset_marker = "/dataset/";
+    const std::size_t dataset_pos = filename.find(dataset_marker);
+    if (dataset_pos != std::string::npos) {
+        return filename.substr(dataset_pos + dataset_marker.size());
+    }
+    return filename;
+}
+
+std::string resolveBagFilename(const std::string& config_filename,
+                               const std::string& dataset_root,
+                               const std::string& bag_file) {
+    if (!bag_file.empty()) {
+        return bag_file;
+    }
+
+    if (dataset_root.empty()) {
+        return config_filename;
+    }
+
+    const std::filesystem::path config_path(stripKnownDatasetPrefix(config_filename));
+    if (config_path.is_absolute()) {
+        return config_path.string();
+    }
+
+    return (std::filesystem::path(dataset_root) / config_path).string();
+}
 }
 
 int main(int argc, char** argv) {
@@ -115,6 +143,8 @@ int main(int argc, char** argv) {
     ArgumentString tum_file   (&cmd, "t", "tum",      "TUM trajectory file with frame or selected frame poses",        "");
     ArgumentString dl_config  (&cmd, "dlc", "dl-config", "dynamic loader config file", "");
     ArgumentString dl_so_path (&cmd, "dlp", "dl-path",   "devel/install prefix where dynamic libraries are located", "");
+    ArgumentString dataset_root(&cmd, "d", "dataset-root", "dataset root prepended to relative bag filenames in config", "");
+    ArgumentString bag_file(&cmd, "b", "bag-file", "full path to a ROS bag file; overrides the config filename", "");
     cmd.parse();
 
     // Find the dynamic libraries
@@ -153,6 +183,13 @@ int main(int argc, char** argv) {
         auto source = dynamic_pointer_cast<MessageFileSourceBase>(runner->param_source.value());
         if (!source) {
             std::cerr << std::string(environ[0]) + "|ERROR, cannot find source, maybe wrong configuration path!" << std::endl;
+        } else {
+            const std::string resolved_bag = resolveBagFilename(
+              source->param_filename.value(), dataset_root.value(), bag_file.value());
+            if (resolved_bag != source->param_filename.value()) {
+                std::cerr << "main_app|bag file: " << resolved_bag << std::endl;
+                source->param_filename.setValue(resolved_bag);
+            }
         }
         // Retrieve a sink
         auto sink = manager.getByName<MessageSortedSink>("sink");
