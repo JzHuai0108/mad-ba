@@ -154,6 +154,16 @@ void configureSequenceLength(const mad_ba::PointCloudProcPtr& proc, const int cl
               << ", decimate_real_data: " << decimation << std::endl;
 }
 
+void configureOutputFolder(const mad_ba::PointCloudProcPtr& proc,
+                           const std::string& output_folder) {
+    if (!proc || output_folder.empty()) {
+        return;
+    }
+
+    proc->param_output_folder.setValue(output_folder);
+    std::cerr << "main_app|output folder: " << output_folder << std::endl;
+}
+
 int countTumEntries(const std::string& tum_file) {
     std::ifstream input(tum_file);
     if (!input.good()) {
@@ -216,6 +226,7 @@ int main(int argc, char** argv) {
     ArgumentString dl_so_path (&cmd, "dlp", "dl-path",   "devel/install prefix where dynamic libraries are located", "");
     ArgumentString dataset_root(&cmd, "d", "dataset-root", "dataset root prepended to relative bag filenames in config", "");
     ArgumentString bag_file(&cmd, "b", "bag-file", "full path to a ROS bag file; overrides the config filename", "");
+    ArgumentString output_folder(&cmd, "o", "output-folder", "base name for the output folder; overrides the config value", "");
     cmd.parse();
 
     // Find the dynamic libraries
@@ -234,7 +245,7 @@ int main(int argc, char** argv) {
 
     if (!pcd_dir.value().empty() && !tum_file.value().empty()) {
         // --- PCD folder + TUM trajectory mode ---
-        // PointCloudProc is configured via the config file (iter_num, output_folder, …).
+        // PointCloudProc is configured via the config file, with selected CLI overrides.
         // The bag source / pipeline runner entries in the config are ignored.
         auto proc = manager.getByName<mad_ba::PointCloudProc>("point_cloud_proc");
         if (!proc) {
@@ -243,6 +254,7 @@ int main(int argc, char** argv) {
                       << config_file.value() << std::endl;
             return 1;
         }
+        configureOutputFolder(proc, output_folder.value());
         configureSequenceLength(proc, countTumEntries(tum_file.value()));
         mad_ba::runFromPCDFolder(proc, pcd_dir.value(), tum_file.value());
     } else {
@@ -270,6 +282,7 @@ int main(int argc, char** argv) {
                       << config_file.value() << std::endl;
             return 1;
         }
+        configureOutputFolder(proc, output_folder.value());
         configureSequenceLength(
           proc, countRosbagCloudMessages(std::dynamic_pointer_cast<MessageROSBagSource>(source)));
         // Retrieve a sink

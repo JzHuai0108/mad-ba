@@ -30,9 +30,9 @@ namespace mad_ba {
  * PCD naming convention:  <pcd_dir>/<timestamp>.pcd
  *   where <timestamp> is the exact string from column 0 of the TUM file.
  *
- * PointCloudProc parameters (iter_num, output_folder, …) are still read from
- * the config file passed via -c. Sequence length and decimation are assigned
- * by main_app from the TUM file before this function is called.
+ * PointCloudProc parameters (iter_num, output_folder, …) are loaded before
+ * this function is called. main_app also applies CLI overrides and assigns
+ * sequence length / decimation from the TUM file.
  *
  * processSequence() is called at the end when all entries have been fed but
  * clouds_to_process was not yet reached; if it was already triggered from
