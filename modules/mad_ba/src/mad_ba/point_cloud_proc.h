@@ -78,6 +78,11 @@ namespace mad_ba {
     PARAM(PropertyFloat, radius, "radius", 2.f, 0);
     PARAM(PropertyInt, clouds_to_process, "clouds_to_process", 0, 0);
     PARAM(PropertyInt, decimate_real_data, "decimate_real_data", 1, 0);
+    PARAM(PropertyInt,
+          target_clouds_after_decimation,
+          "target number of clouds after automatic decimation",
+          1500,
+          0);
     PARAM(PropertyInt, clouds_to_skip, "clouds_to_skip", 0, 0);
     PARAM(PropertyInt, iter_num, "iter_num", 0, 0);
     PARAM(PropertyString, output_folder, "output_folder", "no_name", 0);

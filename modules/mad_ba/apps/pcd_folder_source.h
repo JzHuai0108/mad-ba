@@ -30,8 +30,9 @@ namespace mad_ba {
  * PCD naming convention:  <pcd_dir>/<timestamp>.pcd
  *   where <timestamp> is the exact string from column 0 of the TUM file.
  *
- * PointCloudProc parameters (clouds_to_process, iter_num, output_folder, …)
- * are still read from the config file passed via -c.
+ * PointCloudProc parameters (iter_num, output_folder, …) are still read from
+ * the config file passed via -c. Sequence length and decimation are assigned
+ * by main_app from the TUM file before this function is called.
  *
  * processSequence() is called at the end when all entries have been fed but
  * clouds_to_process was not yet reached; if it was already triggered from
@@ -116,8 +117,8 @@ inline void runFromPCDFolder(std::shared_ptr<PointCloudProc> proc,
         proc->putMessage(cloud_srrg);
     }
 
-    // Reached only when all TUM entries were fed but clouds_to_process was not
-    // yet hit inside putMessage (i.e., actual entries < clouds_to_process).
+    // Reached only when all TUM entries were fed but processSequence was not
+    // triggered from inside putMessage.
     proc->processSequence();
 }
 

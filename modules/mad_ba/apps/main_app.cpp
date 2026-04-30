@@ -12,6 +12,7 @@
 #include <srrg_messages/messages/imu_message.h>
 #include <srrg_messages/messages/transform_events_message.h>
 #include <srrg_messages_ros/instances.h>
+#include <srrg_messages_ros/message_handlers/message_rosbag_source.h>
 #include <srrg_pcl/instances.h>
 #include <srrg_pcl/point_cloud.h>
 #include <srrg_pcl/point_normal_curvature.h>
@@ -33,6 +34,9 @@
 #include <vector>
 #include <ros/ros.h>
 #include <ros/package.h>
+#include <rosbag/bag.h>
+#include <rosbag/view.h>
+#include <sensor_msgs/PointCloud2.h>
 
 #include "pcd_folder_source.h"
 
@@ -129,6 +133,73 @@ std::string resolveBagFilename(const std::string& config_filename,
 
     return (std::filesystem::path(dataset_root) / config_path).string();
 }
+
+int decimationForCloudCount(const int cloud_count, const int target_clouds_after_decimation) {
+    const int target = std::max(1, target_clouds_after_decimation);
+    return std::max(1, cloud_count / target);
+}
+
+void configureSequenceLength(const mad_ba::PointCloudProcPtr& proc, const int cloud_count) {
+    if (!proc || cloud_count <= 0) {
+        return;
+    }
+
+    const int decimation = decimationForCloudCount(
+      cloud_count, proc->param_target_clouds_after_decimation.value());
+    proc->param_clouds_to_process.setValue(cloud_count);
+    proc->param_decimate_real_data.setValue(decimation);
+    std::cerr << "main_app|sequence clouds: " << cloud_count
+              << ", target clouds after decimation: "
+              << proc->param_target_clouds_after_decimation.value()
+              << ", decimate_real_data: " << decimation << std::endl;
+}
+
+int countTumEntries(const std::string& tum_file) {
+    std::ifstream input(tum_file);
+    if (!input.good()) {
+        std::cerr << "main_app|WARNING: cannot open TUM file for sequence length: "
+                  << tum_file << std::endl;
+        return 0;
+    }
+
+    int count = 0;
+    std::string line;
+    while (std::getline(input, line)) {
+        if (!line.empty() && line[0] != '#') {
+            ++count;
+        }
+    }
+    return count;
+}
+
+int countRosbagCloudMessages(const srrg2_core_ros::MessageROSBagSourcePtr& source) {
+    if (!source) {
+        return 0;
+    }
+
+    try {
+        rosbag::Bag bag;
+        bag.open(source->param_filename.value(), rosbag::bagmode::Read);
+
+        if (!source->param_topics.value().empty()) {
+            rosbag::View view(bag, rosbag::TopicQuery(source->param_topics.value().front()));
+            return static_cast<int>(view.size());
+        }
+
+        int count = 0;
+        rosbag::View view(bag);
+        for (const rosbag::MessageInstance& msg : view) {
+            if (msg.instantiate<sensor_msgs::PointCloud2>()) {
+                ++count;
+            }
+        }
+        return count;
+    } catch (const rosbag::BagException& e) {
+        std::cerr << "main_app|WARNING: cannot count cloud messages in bag ["
+                  << source->param_filename.value() << "]: " << e.what() << std::endl;
+    }
+    return 0;
+}
 }
 
 int main(int argc, char** argv) {
@@ -172,6 +243,7 @@ int main(int argc, char** argv) {
                       << config_file.value() << std::endl;
             return 1;
         }
+        configureSequenceLength(proc, countTumEntries(tum_file.value()));
         mad_ba::runFromPCDFolder(proc, pcd_dir.value(), tum_file.value());
     } else {
         // --- Original ROS bag pipeline mode ---
@@ -191,6 +263,15 @@ int main(int argc, char** argv) {
                 source->param_filename.setValue(resolved_bag);
             }
         }
+        auto proc = manager.getByName<mad_ba::PointCloudProc>("point_cloud_proc");
+        if (!proc) {
+            std::cerr << std::string(environ[0])
+                      << "|ERROR: cannot find 'point_cloud_proc' in config "
+                      << config_file.value() << std::endl;
+            return 1;
+        }
+        configureSequenceLength(
+          proc, countRosbagCloudMessages(std::dynamic_pointer_cast<MessageROSBagSource>(source)));
         // Retrieve a sink
         auto sink = manager.getByName<MessageSortedSink>("sink");
         if (!sink) {
