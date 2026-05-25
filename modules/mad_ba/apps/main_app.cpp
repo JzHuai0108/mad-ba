@@ -136,7 +136,7 @@ std::string resolveBagFilename(const std::string& config_filename,
 
 int decimationForCloudCount(const int cloud_count, const int target_clouds_after_decimation) {
     const int target = std::max(1, target_clouds_after_decimation);
-    return std::max(1, cloud_count / target);
+    return std::max(1, cloud_count / target + 1);
 }
 
 void configureSequenceLength(const mad_ba::PointCloudProcPtr& proc, const int cloud_count) {
